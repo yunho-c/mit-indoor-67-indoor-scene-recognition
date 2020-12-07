@@ -1,0 +1,4 @@
+torch==1.6.0
+adabound==0.0.5
+efficientnet-pytorch==0.7.0
+seaborn==0.10.0

@@ -32,11 +32,19 @@ import importlib
 import pkgutil
 from pathlib import Path
 from efficientnet_pytorch import EfficientNet
+from efficientnet_lite_pytorch import EfficientNet as EfficientNetLite
+from efficientnet_lite0_pytorch_model import EfficientnetLite0ModelFile
+from efficientnet_lite1_pytorch_model import EfficientnetLite1ModelFile
+from efficientnet_lite2_pytorch_model import EfficientnetLite2ModelFile
+
 
 # Configuration of fc layer: `shrink` - every layer shrinks by half
 # `expand` - every layer expands by double
 TUNE_CONFIG = 'shrink'
 
+LITE_WEIGHTS = [EfficientnetLite0ModelFile.get_model_file_path(),
+                EfficientnetLite1ModelFile.get_model_file_path(),
+                EfficientnetLite2ModelFile.get_model_file_path()]
 
 class EfficientNetBase(nn.Module):
     
@@ -56,8 +64,30 @@ class EfficientNetBase(nn.Module):
         
         super().__init__()
         # Instantiate an EfficientNet model
-        self.model = EfficientNet.from_pretrained(version,
-                                                  num_classes=num_classes)
+        
+        if 'lite' in version:
+            
+            lite_version = version[-1]
+            
+            assert lite_version.isnumeric(),\
+            "EfficientNet Lite version must be an integer, got {}"\
+            .format(lite_version)
+            
+            lite_version = int(lite_version)
+            
+            assert lite_version < len(LITE_WEIGHTS),\
+            "EfficientNet Lite version only offer up to {}; got Lite{}"\
+            .format(len(LITE_WEIGHTS)-1, lite_version)
+            
+            self.model = (EfficientNetLite
+                          .from_pretrained(version,
+                                           weights_path=LITE_WEIGHTS[lite_version],
+                                           num_classes=num_classes))
+        
+        else:
+            self.model = (EfficientNet
+                          .from_pretrained(version,
+                                           num_classes=num_classes))
         
         # Freeze all layers
         for param in self.model.parameters():
@@ -224,6 +254,10 @@ class efficientnet_b0(EfficientNetBase):
     def __init__(self, version, num_classes, **kwargs):
         super().__init__(version, num_classes, **kwargs)
 
+class efficientnet_lite0(EfficientNetBase):
+    def __init__(self, version, num_classes, **kwargs):
+        super().__init__(version, num_classes, **kwargs)
+        
 class efficientnet_b0_tuned(EfficientNetTuned):
     def __init__(self, version, num_classes, **kwargs):
         super().__init__(version, num_classes, **kwargs)
@@ -232,11 +266,19 @@ class efficientnet_b1(EfficientNetBase):
     def __init__(self, version, num_classes, **kwargs):
         super().__init__(version, num_classes, **kwargs)
         
+class efficientnet_lite1(EfficientNetBase):
+    def __init__(self, version, num_classes, **kwargs):
+        super().__init__(version, num_classes, **kwargs)
+        
 class efficientnet_b1_tuned(EfficientNetTuned):
     def __init__(self, version, num_classes, **kwargs):
         super().__init__(version, num_classes, **kwargs)
 
 class efficientnet_b2(EfficientNetBase):
+    def __init__(self, version, num_classes, **kwargs):
+        super().__init__(version, num_classes, **kwargs)
+
+class efficientnet_lite2(EfficientNetBase):
     def __init__(self, version, num_classes, **kwargs):
         super().__init__(version, num_classes, **kwargs)
 
@@ -385,9 +427,14 @@ class ModelMaker:
 
             if "tuned" in model:
 
-                return self.models[model.replace("-", "_")](version=model.split('-tuned')[0], **kwargs), model_info
+                return ((self.models[model.replace("-", "_")]
+                        (version=model.split('-tuned')[0],
+                         **kwargs)),
+                        model_info)
 
-            return self.models[model.replace("-", "_")](version=model, **kwargs), model_info
+            return ((self.models[model.replace("-", "_")]
+                     (version=model, **kwargs)),
+                    model_info)
 
         return self.models[model](**kwargs), model_info
         
